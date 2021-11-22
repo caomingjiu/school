@@ -14,8 +14,10 @@ import com.example.zijin.common.ResultCode;
 import com.example.zijin.entity.UserAccount;
 import com.example.zijin.entity.dto.LoginDto;
 import com.example.zijin.entity.dto.SignDto;
+import com.example.zijin.entity.vo.UserLoginVo;
 import com.example.zijin.mapper.UserAccountMapper;
 import com.example.zijin.util.StringUtil;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -28,21 +30,25 @@ public class UserAccountService extends ServiceImpl<UserAccountMapper, UserAccou
 
     @Autowired
     private RedisService redisService;
-    public UserAccount selectIdUserAccount(String id){
-        UserAccount userAccount=userAccountMapper.selectUserById(id);
+
+    public UserAccount selectIdUserAccount(String id) {
+        UserAccount userAccount = userAccountMapper.selectUserById(id);
         return userAccount;
     }
-    public int updateUserAvatar(String avatar ,String id){
-        userAccountMapper.updateUserAvatar(avatar,id);
+
+    public int updateUserAvatar(String avatar, String id) {
+        userAccountMapper.updateUserAvatar(avatar, id);
         return 0;
     }
-    public int updateUser(String nickname,String gender,String address,String id){
+
+    public int updateUser(String nickname, String gender, String address, String id) {
         userAccountMapper.updateUser(nickname, gender, address, id);
         return 0;
     }
-    public void login(LoginDto loginDto){
-        List<UserAccount> userAccountList=super.baseMapper.selectList(null);
-        int i=0;
+
+    public void login(LoginDto loginDto) {
+        List<UserAccount> userAccountList = super.baseMapper.selectList(null);
+        int i = 0;
 //        Result result=new Result();
 //        for(;i<userAccountList.size();i++){
 //            if(loginDto.getAccount().equals(userAccountList.get(i).getUserAccount())){
@@ -95,8 +101,8 @@ public class UserAccountService extends ServiceImpl<UserAccountMapper, UserAccou
         //将返回的JSON字符串转成JSON对象
         JSONObject jsonObject = JSONObject.parseObject(resData);
         if ("OK".equals(jsonObject.get("Code"))) {
-            System.out.println("验证码："+verifyCode);
-            System.out.println("手机号："+mobile);
+            System.out.println("验证码：" + verifyCode);
+            System.out.println("手机号：" + mobile);
             //存入redis，5分钟有效
             redisService.set(mobile, verifyCode, 5L);
             return Result.success(verifyCode);
@@ -104,4 +110,60 @@ public class UserAccountService extends ServiceImpl<UserAccountMapper, UserAccou
             return Result.failure(ResultCode.SMS_ERROR);
         }
     }
+
+    public Result checkSms(SignDto signDto) {
+        String mobile = signDto.getMobile();
+        String sms = signDto.getSms();
+        String correctSms = redisService.getValue(mobile, String.class);
+        if (correctSms != null) {
+            //将客户端传来的短信验证码和redis取出的短信验证码比对
+            if (correctSms.equals(sms)) {
+                return Result.success("验证码正确");
+            } else {
+                //验证码错误
+                Result.failure(ResultCode.USER_VERIFY_CODE_ERROR);
+            }
+        }
+        //验证码失效
+        return Result.failure(ResultCode.USER_CODE_TIMEOUT);
+    }
+
+    /**
+     * 短信快捷登录
+     *
+     * @param signDto
+     * @return
+     */
+    public Result sign(SignDto signDto) {
+        String mobile = signDto.getMobile();
+        // 查询用户是否存在
+        UserAccount user = lambdaQuery().eq(UserAccount::getPhoneNumber, mobile).one();
+        if (user != null) {
+            //判断验证码是否正确
+            Result result = checkSms(signDto);
+            if (result.getCode() == 1) {
+                //验证码通过
+                String token = DigestUtils.sha3_256Hex(user.getUserAccount());
+                redisService.set(mobile, token, 60 * 24L);
+                UserLoginVo userLoginVo = UserLoginVo.builder()
+                        .userAccountId(user.getUserAccountId())
+                        .userAccount(user.getUserAccount())
+                        .userName(user.getUserName())
+                        .nickname(user.getNickname())
+                        .jobNumber(user.getJobNumber())
+                        .avatar(user.getAvatar())
+                        .phoneNumber(user.getPhoneNumber())
+                        .clazzId(user.getClazzId())
+                        .cardId(user.getCardId())
+                        .address(user.getAddress())
+                        .build();
+                return Result.success(userLoginVo);
+            } else {
+                return Result.failure(ResultCode.USER_VERIFY_CODE_ERROR);
+            }
+        } else {
+            return Result.failure(ResultCode.USER_NOT_FOUND);
+        }
+    }
+
 }

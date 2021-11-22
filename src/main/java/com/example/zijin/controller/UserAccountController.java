@@ -50,4 +50,17 @@ public class UserAccountController {
         System.out.println("进入接口");
         return userAccountService.sendSms(signDto);
     }
+
+
+    /**
+     * 手机短信快捷登录
+     * @param signDto
+     * @return
+     */
+    @ApiOperation(value = "通过手机短信验证登录",notes = "data为用户的数据")
+    @PostMapping(value = "/sign")
+    Result sign(@RequestBody SignDto signDto){
+        return userAccountService.sign(signDto);
+    }
+
 }
