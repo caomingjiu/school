@@ -19,14 +19,14 @@ import com.example.zijin.util.StringUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @Service
 public class UserAccountService extends ServiceImpl<UserAccountMapper, UserAccount> {
     @Autowired
     private UserAccountMapper userAccountMapper;
+
+    @Autowired
     private RedisService redisService;
     public UserAccount selectIdUserAccount(String id){
         UserAccount userAccount=userAccountMapper.selectUserById(id);
@@ -95,7 +95,8 @@ public class UserAccountService extends ServiceImpl<UserAccountMapper, UserAccou
         //将返回的JSON字符串转成JSON对象
         JSONObject jsonObject = JSONObject.parseObject(resData);
         if ("OK".equals(jsonObject.get("Code"))) {
-            System.out.println(verifyCode);
+            System.out.println("验证码："+verifyCode);
+            System.out.println("手机号："+mobile);
             //存入redis，5分钟有效
             redisService.set(mobile, verifyCode, 5L);
             return Result.success(verifyCode);

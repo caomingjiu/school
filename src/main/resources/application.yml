@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: 8081
 
 spring:
   application:
@@ -25,7 +25,19 @@ spring:
       connection-timeout: 30000
       # 连接测试查询语句
       connection-test-query: SELECT 1
-
+  #redis配置数据
+  redis:
+    database: 3
+    password:
+    port: 6379
+    host: localhost
+    lettuce:
+      pool:
+        min-idle: 5
+        max-idle: 10
+        max-active: 8
+        max-wait: 1ms
+      shutdown-timeout: 100ms
   #Mybatis-Plus配置
   mybatis-plus:
     # mapper映射文件路径
